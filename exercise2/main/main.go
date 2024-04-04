@@ -24,7 +24,7 @@ type PasswordReq struct {
 }
 
 func main() {
-	http.HandleFunc("/gen", generatePassword)
+	http.HandleFunc("/generate-password", generatePassword)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -67,8 +67,6 @@ func generatePassword(w http.ResponseWriter, r *http.Request) {
 		passwordobj.Password = password
 
 		passwords = append(passwords, passwordobj)
-
-		fmt.Printf("Generated Secure Password/PIN %d: %s\n", i+1, password)
 	}
 
 	json.NewEncoder(w).Encode(passwords)
