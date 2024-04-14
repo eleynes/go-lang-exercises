@@ -9,6 +9,7 @@ import (
 	"example.com/auth"
 	"example.com/db"
 	"example.com/passwordgenerator"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Password struct {
@@ -66,8 +67,11 @@ func savePassword(w http.ResponseWriter, r *http.Request) {
 	url := params.Url
 	notes := params.Notes
 
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), 14)
+	hash := string(bytes)
+
 	// Create a new item
-	newItem := db.Item{VaultId: vaultid, ItemName: itemName, UserName: username, EncryptedPassword: password, Url: url, Notes: notes}
+	newItem := db.Item{VaultId: vaultid, ItemName: itemName, UserName: username, EncryptedPassword: hash, Url: url, Notes: notes}
 	dberr := db.CreateItem(newItem)
 	if dberr != nil {
 		fmt.Println("Error creating item:", err)
