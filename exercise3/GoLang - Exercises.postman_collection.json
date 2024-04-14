@@ -1,0 +1,52 @@
+{
+	"info": {
+		"_postman_id": "fde7aff5-2eb2-4079-93b4-d8244e604ba6",
+		"name": "GoLang - Exercises",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "2238797"
+	},
+	"item": [
+		{
+			"name": "save-password",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "MyP4ssw0rd",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "eleynes",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"VaultId\" : 1,\n\t\"ItemName\" : \"test\",\n\t\"Username\" : \"username\",\n\t\"Password\" : \"password\",\n\t\"Url\"      : \"url.com\",\n\t\"Notes\"    : \"notes\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8081/save-password",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"save-password"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
