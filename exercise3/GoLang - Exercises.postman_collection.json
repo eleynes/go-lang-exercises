@@ -7,14 +7,14 @@
 	},
 	"item": [
 		{
-			"name": "save-password",
+			"name": "create-vault",
 			"request": {
 				"auth": {
 					"type": "basic",
 					"basic": [
 						{
 							"key": "password",
-							"value": "MyP4ssw0rd",
+							"value": "Password123!",
 							"type": "string"
 						},
 						{
@@ -28,7 +28,7 @@
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"VaultId\" : 1,\n\t\"ItemName\" : \"test\",\n\t\"Username\" : \"username\",\n\t\"Password\" : \"password\",\n\t\"Url\"      : \"url.com\",\n\t\"Notes\"    : \"notes\"\n}",
+					"raw": "{\n    \"VaultName\" : \"private vault\"\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -36,13 +36,139 @@
 					}
 				},
 				"url": {
-					"raw": "localhost:8081/save-password",
+					"raw": "localhost:8081/create-vault",
 					"host": [
 						"localhost"
 					],
 					"port": "8081",
 					"path": [
-						"save-password"
+						"create-vault"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create-item",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "Password123!",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "eleynes",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"VaultName\" : \"private vault\",\n\t\"ItemName\" : \"test\",\n\t\"Username\" : \"username\",\n\t\"Password\" : \"password\",\n\t\"Url\"      : \"url.com\",\n\t\"Notes\"    : \"notes\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8081/create-item",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"create-item"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create-user",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "MyP4ssw0rds",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "eleynes",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"UserName\" : \"eleynes\",\n    \"Email\":\"erickson.leynes@98labs.com\",\n    \"Password\" : \"Password123!\",\n    \"Salt\" : \"MySalt123\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8081/create-user",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"create-user"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "generate-password",
+			"request": {
+				"auth": {
+					"type": "basic",
+					"basic": [
+						{
+							"key": "password",
+							"value": "MyP4ssw0rds",
+							"type": "string"
+						},
+						{
+							"key": "username",
+							"value": "eleynes",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"Length\": 6,\n\t\"NumPasswords\": 1,\n\t\"PasswordType\": \"random\",\n\t\"IsNumbersIncluded\": true,\n\t\"IsSymbolsIncluded\": true,\n\t\"IsUppercaseIncluded\": true\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8081/generate-password",
+					"host": [
+						"localhost"
+					],
+					"port": "8081",
+					"path": [
+						"generate-password"
 					]
 				}
 			},

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -26,58 +27,124 @@ type PasswordReq struct {
 	IsUppercaseIncluded bool
 }
 
-type Item struct {
-	VaultId  int    `json:"vaultid"`
-	ItemName string `json:"itemname"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Url      string `json:"url"`
-	Notes    string `json:"notes"`
+type UserReq struct {
+	UserName string
+	Email    string
+	Password string
+	Salt     string
 }
 
+type ValultReq struct {
+	VaultName string
+}
 type ItemReq struct {
-	VaultId  int
-	ItemName string
-	Username string
-	Password string
-	Url      string
-	Notes    string
+	VaultName string
+	ItemName  string
+	Username  string
+	Password  string
+	Url       string
+	Notes     string
 }
 
 func main() {
 	db.InitDB("postgres://postgres:postgres@localhost/postgres?sslmode=disable")
 	defer db.CloseDB()
 
-	http.Handle("/save-password", authMiddleware(http.HandlerFunc(savePassword)))
+	// public
+	// http.HandleFunc("/create-user", createUser)
+	http.HandleFunc("/generate-password", generatePassword)
+
+	// private
+	// http.Handle("/create-user", authMiddleware(http.HandlerFunc(createUser)))
+	http.Handle("/create-vault", auth.AuthMiddleware(http.HandlerFunc(createVault)))
+	http.Handle("/create-item", auth.AuthMiddleware(http.HandlerFunc(createItem)))
 	log.Fatal(http.ListenAndServe(":8081", nil))
 
 }
 
-func savePassword(w http.ResponseWriter, r *http.Request) {
+func createUser(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	body := json.NewDecoder(r.Body)
+	params := new(UserReq)
+	err := body.Decode(&params)
+
+	userName := params.UserName
+	email := params.Email
+	password := params.Password
+	salt := params.Salt
+
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(password+salt), bcrypt.DefaultCost)
+	hash := string(bytes)
+
+	// Create a new item
+	newUser := db.User{UserName: userName, Email: email, MasterpasswordHash: hash, MasterpasswordSalt: salt}
+	dberr := db.CreateUser(newUser)
+	if dberr != nil {
+		fmt.Println("Error creating item:", err)
+	}
+
+	json.NewEncoder(w).Encode(newUser)
+}
+
+func createVault(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	body := json.NewDecoder(r.Body)
+	params := new(ValultReq)
+	err := body.Decode(&params)
+
+	vaultName := params.VaultName
+
+	// Create a new vault
+	newVault := db.Vault{VaultName: vaultName, UserId: auth.CurrentLoggedInUser.UserId}
+	dberr := db.CreateVault(newVault)
+	if dberr != nil {
+		fmt.Println("Error creating item:", err)
+	}
+	vault, err := db.GetVaultByNameAndUserId(vaultName, auth.CurrentLoggedInUser.UserId)
+
+	json.NewEncoder(w).Encode(vault)
+}
+
+func createItem(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	body := json.NewDecoder(r.Body)
 	params := new(ItemReq)
 	err := body.Decode(&params)
 
-	vaultid := params.VaultId
+	vaultName := params.VaultName
 	itemName := params.ItemName
 	username := params.Username
 	password := params.Password
 	url := params.Url
 	notes := params.Notes
 
-	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), 14)
-	hash := string(bytes)
+	key := []byte("16byteAESKey1234")
+	message := []byte(password)
+
+	encrypted := db.Encrypt(message, key)
+	fmt.Println("Encrypted:", hex.EncodeToString(encrypted))
+
+	// decrypted := db.Decrypt(encrypted, key)
+	// fmt.Println("Decrypted:", string(decrypted))
 
 	// Create a new item
-	newItem := db.Item{VaultId: vaultid, ItemName: itemName, UserName: username, EncryptedPassword: hash, Url: url, Notes: notes}
+	// TODO: validation for vault ownership
+	newItem := db.Item{VaultName: vaultName, ItemName: itemName, UserName: username, EncryptedPassword: hex.EncodeToString(encrypted), Url: url, Notes: notes}
 	dberr := db.CreateItem(newItem)
 	if dberr != nil {
 		fmt.Println("Error creating item:", err)
 	}
 
-	json.NewEncoder(w).Encode(params)
+	vault, err := db.GetVaultByNameAndUserId(vaultName, auth.CurrentLoggedInUser.UserId)
+
+	item, err := db.GetItemByNameAndVaultId(itemName, vault.VaultId)
+	if err != nil {
+		log.Fatal(err)
+	}
+	json.NewEncoder(w).Encode(item)
 }
 
 func generatePassword(w http.ResponseWriter, r *http.Request) {
@@ -122,23 +189,4 @@ func generatePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(passwords)
-}
-
-func authMiddleware(next http.Handler) http.Handler {
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		username, password := auth.DecodeBasicAuthHeader(authHeader)
-		if !auth.BasicAuth(username, password) {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }
