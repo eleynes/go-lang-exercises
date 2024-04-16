@@ -45,6 +45,19 @@ type ItemReq struct {
 	Url       string
 	Notes     string
 }
+type GenerateItemReq struct {
+	VaultName           string
+	ItemName            string
+	Username            string
+	Url                 string
+	Notes               string
+	Length              int
+	NumPasswords        int
+	PasswordType        string
+	IsNumbersIncluded   bool
+	IsSymbolsIncluded   bool
+	IsUppercaseIncluded bool
+}
 
 func main() {
 	db.InitDB("postgres://postgres:postgres@localhost/postgres?sslmode=disable")
@@ -58,6 +71,7 @@ func main() {
 	// http.Handle("/create-user", authMiddleware(http.HandlerFunc(createUser)))
 	http.Handle("/create-vault", auth.AuthMiddleware(http.HandlerFunc(createVault)))
 	http.Handle("/create-item", auth.AuthMiddleware(http.HandlerFunc(createItem)))
+	http.Handle("/generate-items", auth.AuthMiddleware(http.HandlerFunc(generateItem)))
 	log.Fatal(http.ListenAndServe(":8081", nil))
 
 }
@@ -132,19 +146,58 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new item
 	// TODO: validation for vault ownership
-	newItem := db.Item{VaultName: vaultName, ItemName: itemName, UserName: username, EncryptedPassword: hex.EncodeToString(encrypted), Url: url, Notes: notes}
-	dberr := db.CreateItem(newItem)
+	newItem := db.Item{VaultName: vaultName, UserId: auth.CurrentLoggedInUser.UserId, ItemName: itemName, UserName: username, EncryptedPassword: hex.EncodeToString(encrypted), Url: url, Notes: notes}
+	itemid, dberr := db.CreateItem(newItem)
 	if dberr != nil {
 		fmt.Println("Error creating item:", err)
 	}
 
-	vault, err := db.GetVaultByNameAndUserId(vaultName, auth.CurrentLoggedInUser.UserId)
-
-	item, err := db.GetItemByNameAndVaultId(itemName, vault.VaultId)
+	item, err := db.GetItemByItemId(itemid)
+	item.UserId = auth.CurrentLoggedInUser.UserId
 	if err != nil {
 		log.Fatal(err)
 	}
 	json.NewEncoder(w).Encode(item)
+}
+
+func generateItem(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	body := json.NewDecoder(r.Body)
+	params := new(GenerateItemReq)
+	err := body.Decode(&params)
+
+	var passwords []Password
+	var items []db.Item
+	passwords, err = generatePasswords(params.NumPasswords, params.PasswordType, params.Length, params.IsNumbersIncluded, params.IsSymbolsIncluded, params.IsUppercaseIncluded)
+
+	for i := 0; i < len(passwords); i++ {
+		key := []byte("16byteAESKey1234")
+		message := []byte(passwords[i].Password)
+
+		encrypted := db.Encrypt(message, key)
+		fmt.Println("Encrypted:", hex.EncodeToString(encrypted))
+
+		// decrypted := db.Decrypt(encrypted, key)
+		// fmt.Println("Decrypted:", string(decrypted))
+
+		// Create a new item
+		newItem := db.Item{VaultName: params.VaultName, UserId: auth.CurrentLoggedInUser.UserId, ItemName: params.ItemName, UserName: params.Username, EncryptedPassword: hex.EncodeToString(encrypted), Url: params.Url, Notes: params.Notes}
+		itemid, dberr := db.CreateItem(newItem)
+		if dberr != nil {
+			fmt.Println("Error creating item:", err)
+		}
+
+		item, err := db.GetItemByItemId(itemid)
+		item.UserId = auth.CurrentLoggedInUser.UserId
+
+		if err != nil {
+			log.Fatal(err)
+		}
+		items = append(items, item)
+	}
+
+	json.NewEncoder(w).Encode(items)
 }
 
 func generatePassword(w http.ResponseWriter, r *http.Request) {
@@ -155,13 +208,18 @@ func generatePassword(w http.ResponseWriter, r *http.Request) {
 	params := new(PasswordReq)
 	err := body.Decode(&params)
 
-	numPasswordsInt := params.NumPasswords
-	passwordType := params.PasswordType
-	lengthInt := params.Length
-	includeNumbersBool := params.IsNumbersIncluded
-	includeSymbolsBool := params.IsSymbolsIncluded
-	includeUppercaseBool := params.IsUppercaseIncluded
+	passwords, err = generatePasswords(params.NumPasswords, params.PasswordType, params.Length, params.IsNumbersIncluded, params.IsSymbolsIncluded, params.IsUppercaseIncluded)
 
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	json.NewEncoder(w).Encode(passwords)
+}
+
+func generatePasswords(numPasswordsInt int, passwordType string, lengthInt int, includeNumbersBool bool, includeSymbolsBool bool, includeUppercaseBool bool) ([]Password, error) {
+	var passwords []Password
+	var err error
 	for i := 0; i < numPasswordsInt; i++ {
 		var password string
 
@@ -173,12 +231,12 @@ func generatePassword(w http.ResponseWriter, r *http.Request) {
 			password, err = passwordgenerator.GenerateSecureAlphanumericPassword(lengthInt, includeNumbersBool, includeUppercaseBool)
 		} else {
 			fmt.Println("Invalid password type. Please choose 'random','alphanumeric' or 'pin'.")
-			return
+			return passwords, err
 		}
 
 		if err != nil {
 			fmt.Println("Error generating password/PIN:", err)
-			return
+			return passwords, err
 		}
 
 		var passwordobj Password
@@ -187,6 +245,5 @@ func generatePassword(w http.ResponseWriter, r *http.Request) {
 
 		passwords = append(passwords, passwordobj)
 	}
-
-	json.NewEncoder(w).Encode(passwords)
+	return passwords, nil
 }
